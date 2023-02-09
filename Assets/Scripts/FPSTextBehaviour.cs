@@ -1,7 +1,7 @@
 ﻿using TMPro;
 using UnityEngine;
 
-public class FPSText : MonoBehaviour
+public class FPSTextBehaviour : MonoBehaviour
 {
     [SerializeField] private TextMeshProUGUI text;
 

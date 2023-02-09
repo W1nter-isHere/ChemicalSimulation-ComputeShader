@@ -4,28 +4,35 @@
 RWTexture2D<float4> result;
 Texture2D last_update;
 
+RWTexture2D<float4> material_map;
+Texture2D last_material_map;
+
 float cell_width;
 float cell_height;
 
 float screen_width;
 float screen_height;
 
+
+
+void set_cell(const uint2 position, const float4 color, const float4 material)
+{
+    result[position] = color;
+    material_map[position] = material;
+}
 bool within_bounds_y(const uint y)
 {
     return y > 0 && y < screen_height;
 }
-
 bool within_bounds_x(const uint x)
 {
     return x > 0 && x < screen_width;
 }
-
 bool within_bounds(uint2 pos)
 {
     return within_bounds_x(pos.x) && within_bounds_y(pos.y);
 }
-
-uint2 try_move(uint2 origin, uint2 direction, uint magnitude)
+uint2 try_move(uint2 origin, uint2 direction, const uint magnitude)
 {
     if (magnitude == 0)
     {
@@ -39,7 +46,6 @@ uint2 try_move(uint2 origin, uint2 direction, uint magnitude)
 
     for (uint i = magnitude; i > 0; i--)
     {
-        // todo: does this work?
         const uint2 new_position = origin + uint2(direction.x * magnitude, direction.y * magnitude);
         
         if (direction.x == 0)
@@ -63,8 +69,7 @@ uint2 try_move(uint2 origin, uint2 direction, uint magnitude)
 
     return origin;
 }
-
-bool try_move_simple(const uint2 origin, uint2 direction, const float4 color)
+bool try_move_simple(const uint2 origin, uint2 direction, const float4 color, const float4 material)
 {
     uint2 new_position = origin + direction;
     
@@ -83,22 +88,57 @@ bool try_move_simple(const uint2 origin, uint2 direction, const float4 color)
         
     if (color_at_position.a <= 0)
     {
-        result[new_position] = color;
+        set_cell(new_position, color, material);
         return true;
     }
 
     return false;
 }
+bool is_static(float4 material)
+{
+    return material.a == 0.25;
+}
+bool is_falling(float4 material)
+{
+    return material.a == 0.5;
+}
+bool is_liquid(float4 material)
+{
+    return material.a == 0.75;
+}
+bool is_gas(float4 material)
+{
+    return material.a == 1;
+}
+
+
 
 [numthreads(8, 8, 1)]
 void CSMain(uint3 id : SV_DispatchThreadID)
 {
     const uint2 current_pos = id.xy;
-    float4 current_color = last_update[current_pos];
-    if (current_color.a <= 0) return;
+    
+    float4 current = last_update[current_pos];
+    float4 material = last_material_map[current_pos];
+    
+    if (current.a <= 0) return;
 
-    if (try_move_simple(current_pos, uint2(0, -1), current_color)) return;
-    if (try_move_simple(current_pos, uint2(-1, -1), current_color)) return;
-    if (try_move_simple(current_pos, uint2(1, -1), current_color)) return;
-    result[current_pos] = current_color;
+    if (is_falling(material))
+    {
+        if (try_move_simple(current_pos, uint2(0, -1), current, material)) return;
+        if (try_move_simple(current_pos, uint2(-1, -1), current, material)) return;
+        if (try_move_simple(current_pos, uint2(1, -1), current, material)) return;
+        set_cell(current_pos, current, material);
+    } else if (is_liquid(material))
+    {
+        if (try_move_simple(current_pos, uint2(0, -1), current, material)) return;
+        if (try_move_simple(current_pos, uint2(-1, -1), current, material)) return;
+        if (try_move_simple(current_pos, uint2(1, -1), current, material)) return;
+        // if (try_move_simple(current_pos, uint2(1, 0), current, material)) return;
+        if (try_move_simple(current_pos, uint2(-1, 0), current, material)) return;
+        set_cell(current_pos, current, material);
+    } else
+    {
+        set_cell(current_pos, current, material);
+    }
 }

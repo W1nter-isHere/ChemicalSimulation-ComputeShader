@@ -1,0 +1,20 @@
+// Each #kernel tells which function to compile; you can have many kernels
+#pragma kernel CSMain
+
+struct cell
+{
+    uint2 position;
+    float4 color;
+};
+
+StructuredBuffer<cell> cells_to_add;
+
+RWTexture2D<float4> result;
+Texture2D last_update;
+
+[numthreads(1, 1, 1)]
+void CSMain (uint3 id : SV_DispatchThreadID)
+{
+    cell c = cells_to_add[id.x];
+    result[c.position] = c.color;
+}

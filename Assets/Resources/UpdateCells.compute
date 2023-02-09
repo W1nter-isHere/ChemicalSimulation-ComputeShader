@@ -123,7 +123,7 @@ uint2 evaluate_simple(uint2 position, const float4 color, const float4 material)
 
     return position;
 }
-bool can_move_checking_contenders(uint2 position, const int2 direction, const float4 color, float4 material)
+bool can_move_checking_contenders(uint2 position, const int2 direction, const float4 color, float4 material, bool commit_result)
 {
     int contender_wins = 0;
     int2 target_pos = position + direction;
@@ -160,41 +160,44 @@ bool can_move_checking_contenders(uint2 position, const int2 direction, const fl
         }
     }
 
-    return contender_wins == -1;
-}
-
-uint2 evaluate(uint2 position, float4 color, float4 material)
-{
-    if (is_static(material)) return position;
+    bool win = contender_wins == -1;
     
-    if (is_falling(material))
+    if (commit_result && win)
     {
-        if (can_move_checking_contenders(position, int2(0, -1), color, material)) return position + int2(0, -1);
-        if (can_move_checking_contenders(position, int2(-1, -1), color, material)) return position + int2(-1, -1);
-        if (can_move_checking_contenders(position, int2(1, -1), color, material)) return position + int2(1, -1);
-    } else if (is_liquid(material))
-    {
-        if (can_move_checking_contenders(position, int2(0, -1), color, material)) return position + int2(0, -1);
-        if (can_move_checking_contenders(position, int2(-1, -1), color, material)) return position + int2(-1, -1);
-        if (can_move_checking_contenders(position, int2(1, -1), color, material)) return position + int2(1, -1);
-        if (can_move_checking_contenders(position, int2(-1, 0), color, material)) return position + int2(-1, 0);
-        if (can_move_checking_contenders(position, int2(1, 0), color, material)) return position + int2(1, 0);
-    } else if (is_gas(material))
-    {
-        if (can_move_checking_contenders(position, int2(0, 1), color, material)) return position + int2(0, 1);
-        if (can_move_checking_contenders(position, int2(-1, 1), color, material)) return position + int2(-1, 1);
-        if (can_move_checking_contenders(position, int2(1, 1), color, material)) return position + int2(1, 1);
+        set_cell(target_pos, color, material);
     }
 
-    return position;
+    return win;
 }
 
-[numthreads(16,16,1)]
+[numthreads(8,8,1)]
 void CSMain(uint3 id : SV_DispatchThreadID)
 {
     const uint2 current_pos = id.xy;
     const float4 material = last_material_map[current_pos];
-    float4 current = last_update[current_pos];
-    if (current.a <= 0) return;
-    set_cell(evaluate(current_pos, current, material), current, material);
+    float4 color = last_update[current_pos];
+    
+    if (color.a <= 0) return;
+    if (is_static(material)) return;
+    
+    if (is_falling(material))
+    {
+        if (can_move_checking_contenders(current_pos, int2(0, -1), color, material, true)) return;
+        if (can_move_checking_contenders(current_pos, int2(-1, -1), color, material, true)) return;
+        if (can_move_checking_contenders(current_pos, int2(1, -1), color, material, true)) return;
+    } else if (is_liquid(material))
+    {
+        if (can_move_checking_contenders(current_pos, int2(0, -1), color, material, true)) return;
+        if (can_move_checking_contenders(current_pos, int2(-1, -1), color, material, true)) return;
+        if (can_move_checking_contenders(current_pos, int2(1, -1), color, material, true)) return;
+        if (can_move_checking_contenders(current_pos, int2(-1, 0), color, material, true)) return;
+        if (can_move_checking_contenders(current_pos, int2(1, 0), color, material, true)) return;
+    } else if (is_gas(material))
+    {
+        if (can_move_checking_contenders(current_pos, int2(0, 1), color, material, true)) return;
+        if (can_move_checking_contenders(current_pos, int2(-1, 1), color, material, true)) return;
+        if (can_move_checking_contenders(current_pos, int2(1, 1), color, material, true)) return;
+    }
+
+    set_cell(current_pos, color, material);
 }

@@ -3,7 +3,7 @@
 
 RWTexture2D<float4> result;
 
-[numthreads(16,16,1)]
+[numthreads(8,8,1)]
 void CSMain (uint3 id : SV_DispatchThreadID)
 {
     result[id.xy] = float4(0, 0, 0, 0);

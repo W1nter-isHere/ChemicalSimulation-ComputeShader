@@ -11,8 +11,8 @@ namespace Simulation
     public class Dispatcher : MonoBehaviour
     {
         public static Dispatcher Instance { get; private set; }
-        private const int ThreadX = 16;
-        private const int ThreadY = 16;
+        private const int ThreadX = 8;
+        private const int ThreadY = 8;
 
         [SerializeField] private ComputeShader updateShader;
         [SerializeField] private ComputeShader addCellShader;
